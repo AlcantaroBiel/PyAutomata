@@ -1,0 +1,8 @@
+101 → Válido
+111 → Inválido
+0 → Inválido
+0101 → Válido
+0110 → Válido
+1101 → Inválido
+1001 → Válido
+0010 → Inválido
