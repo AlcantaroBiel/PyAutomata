@@ -1,10 +1,8 @@
 from graphviz import Digraph
 
+#Busca recursiva por novos estados a partir de um estado por meio de transicoes vazias 'h'
 def buscar_estados_recursivo(estado_atual, instrucoes, novoestado):
-    """
-    Busca recursiva de novos estados a partir de um estado atual,
-    incluindo transições com símbolo 'h'.
-    """
+
     for i in instrucoes:
         # Verifica se a transição parte do estado atual
         if i[0] == estado_atual:
@@ -105,6 +103,7 @@ def formatar_item(item):
         return ''.join(formatar_item(x) for x in item)
     return str(item)   
 
+#Cria e retorna um arquivo saida.txt com o automato finito deterministico
 def retornoAFD(eInicial, eFinal, instrucoes, estados):
     linhas = []
 
@@ -127,24 +126,35 @@ def retornoAFD(eInicial, eFinal, instrucoes, estados):
         arquivo.writelines(linhas)
     
 
-
+# Lê arquivo de entrada contendo a definição do autômato
 with open("entrada.txt", "r", encoding="utf-8") as f:
     linha = f.readlines()
-    
-estados = linha[0].split()
-eInicial = linha[1].split()
-eFinal = linha[2].split()
 
-instrucoes = []
-alfabeto = []
+# Define listas de estados, estado(s) inicial(is) e estados finais a partir das 3 primeiras linhas do arquivo
+estados = linha[0].split() 
+eInicial = linha[1].split()   # estado inicial
+eFinal = linha[2].split()     # estados finais
 
+# Cria listas vazias para armazenar as transições e o alfabeto
+instrucoes = []  # Cada transição será uma lista [origem, símbolo, destino]
+alfabeto = []    # Lista de símbolos utilizados nas transições
+
+# Percorre o restante das linhas (a partir da quarta), que contêm as transições
 for lAtual in linha[3:]:
-    lAtual = lAtual.split()
+    lAtual = lAtual.split()  # Divide a linha em partes: [estado_origem, símbolo, estado_destino]
+    
+    # Verifica se o estado de origem é válido
     if lAtual[0] in estados:
-        if(lAtual[2] in estados):
-            instrucoes.append(lAtual)
+        # Verifica se o estado de destino é válido
+        if lAtual[2] in estados:
+            instrucoes.append(lAtual)  # Adiciona a transição válida na lista de instruções
+            
+            # Caso o estado inicial tenha uma transição com símbolo 'h' (vazio),
+            # o destino também é considerado como estado inicial
             if lAtual[0] in eInicial and lAtual[1] == 'h':
                 eInicial.append(lAtual[2])
+            
+            # Adiciona o símbolo ao alfabeto, exceto se for 'h' (ε)
             if lAtual[1] not in alfabeto and lAtual[1] != 'h':
                 alfabeto.append(lAtual[1])
         else:
@@ -152,39 +162,61 @@ for lAtual in linha[3:]:
     else:
         print(f'Estado {lAtual} inválido!')
 
+# Ordena o alfabeto
 alfabeto.sort()
 
+# Exibe a tabela de transições do autômato original (AFND)
 print_tabela_transicoes(instrucoes, alfabeto, eInicial[0])
+
+# Gera o diagrama do autômato não determinístico (AFND) usando Graphviz
 gerar_automato_graphviz(instrucoes, eInicial[0], eFinal, nome_arquivo="automatoFND")
 
-novoestados = [eInicial]
-novainst = []
-novoestado = []
+# Inicializa a conversão para AFD (construção do autômato determinístico)
+novoestados = [eInicial]  # Nova lista de estados (começa com o(s) estado(s) inicial)
+novainst = []             # Nova lista de transições do AFD
+novoestado = []           # Lista temporária usada durante a expansão
 
-for e in novoestados:
-    for a in alfabeto:
-        for i in instrucoes:
-            if i[0] in e and i[1] == a and i[1] != 'h' and i[2] not in novoestado:
-                novoestado.append(i[2])
-                buscar_estados_recursivo(i[2], instrucoes, novoestado)
-                novoestado.sort()
+# Inicia o processo de construção do AFD (técnica de conjuntos de estados)
+for e in novoestados:             # Para cada novo estado (conjunto de estados)
+    for a in alfabeto:            # Para cada símbolo do alfabeto
+        for i in instrucoes:      # Para cada transição do AFND
+            # Se a origem da transição está dentro do conjunto atual e o símbolo coincide
+            if i[0] in e and i[1] == a and i[2] not in novoestado:
+                novoestado.append(i[2])  # Adiciona o destino à lista temporária
+                buscar_estados_recursivo(i[2], instrucoes, novoestado)  # Busca recursivamente transições vazias
+                novoestado.sort()  # Ordena os estados do novo conjunto
+        
+        # Se o novo conjunto de estados ainda não existe na lista de novos estados, adiciona
         if novoestado not in novoestados and novoestado != []:
+            # Se o novo conjunto contém algum estado final, marca-o também como final
             if(eFinal[0] in novoestado):
                 eFinal.append(formatar_item(novoestado))
-            novoestados.append(novoestado)
+            novoestados.append(novoestado)  # Adiciona o novo conjunto como novo estado
+        
+        # Registra a nova transição do AFD (origem, símbolo, destino)
         if novoestado != []:
             novainst.append([formatar_item(e), a, formatar_item(novoestado)])
+        
+        # Limpa a lista temporária antes da próxima iteração
         novoestado = []
 
-
+# Formata o estado inicial (agora conjunto)
 eInicial = formatar_item(eInicial)
+
+# Remove o primeiro estado final antigo (que era do AFND)
 eFinal.remove(eFinal[0])
 
+# Formata todos os novos estados (para exibição mais limpa, ex: ['A','B'] → 'AB')
 for i in range(len(novoestados)):
     novoestados[i] = formatar_item(novoestados[i])
 
-
+# Exibe a tabela de transições do AFD resultante
 print_tabela_transicoes(novainst, alfabeto, eInicial)
+
+# Gera o diagrama do autômato determinístico (AFD)
 gerar_automato_graphviz(novainst, eInicial, eFinal, nome_arquivo="automatoFD")
+
+# Exibe/retorna as informações finais do AFD (função definida em outro trecho do código)
 retornoAFD(eInicial, eFinal, novainst, novoestados)
+
     
